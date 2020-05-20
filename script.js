@@ -130,11 +130,9 @@ function splitOrdersFromInstruction(instr)
     for (var i = 0; i < 4; i++) {
         arr.push(new SplitOrder(instr,                               // instruction
                                 relPos,                              // relevant position
-                                (i + 1) * 0.1 * totalQuantity,       // percentage of quantity
+                                (i + 1) * 0.1 * totalQuantity,       // percentage of quantity (QUESTION:  ACCOUNT FOR ROUNDING ERRORS?)
                                 FXtoUSD(splitPriceLevel(limit, stdDev, i), FXrate))); // split limit (USD)
     }
-
-    console.log(relPos.name + " --- " + arr);
 
     return arr;
 }
@@ -306,7 +304,8 @@ function executionSummaries()
 
 function summaryToText(s)
 {
-    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + Math.floor(s.avgPrice) + "," + s.custodian + "," + s.broker + "\n";
+    // s.custodian.replace('\r','') fixes the error where there is an extra \r character from custodian cell
+    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + Math.floor(s.avgPrice) + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
 }
 
 /*                                                                          */

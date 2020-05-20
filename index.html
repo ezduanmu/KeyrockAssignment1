@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+
+    <title>Keyrock Assignment 1</title>
+
+    <style type="text/css">
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      #container {
+        width: 40%;
+        height: 100px;
+        margin: 10% auto;
+      }
+    </style>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+   
+  </head>
+  <body>
+    <center>
+      <div id="container">
+        <p>Upload a .csv portfolio and click to download the order split .csv</p>
+        <p>
+          Instructions:<br>
+          Sell short Samsung, 005930 KS, to -4% of NAV, limit KRW 51,000<br>
+          Buy Cover Apple, AAPL US, to 0% of NAV, limit USD 265<br>
+          Buy Embraer, EMBR3 SA, to 8% of NAV, limit BRL 9<br>
+          Buy Boeing, BA US, to 8% of NAV, limit USD 175<br>
+          Sell Airbus, AIR FP, to 4% of NAV, limit EUR 52<br>
+        </p>
+        <input type="file" id="fileInput1" accept=".csv" required>
+        <button id="submit" onclick="processPositions()">Get Orders</button>
+        <br><br><br><br>
+        <p>Upload a .csv of executed orders and click to download the summary .csv</p>
+        <input type="file" id="fileInput2" accept=".csv" required>
+        <button id="submit" onclick="summarizeExecutions()">Get Summary</button>
+      </div>
+    <center>
+    <script language="javascript" src="script.js"></script>
+  </body>
+</html>

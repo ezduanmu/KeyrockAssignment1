@@ -86,6 +86,7 @@ function processPositions()
 /*                                                                          */
 function SplitOrder(instr, pos, quantity, limit) // (instruction, position)  
 {
+    this.currency = pos.currency;
     this.side = instr.side;
     this.ticker = instr.ticker;
     this.name = instr.name;
@@ -131,7 +132,8 @@ function splitOrdersFromInstruction(instr)
         arr.push(new SplitOrder(instr,                               // instruction
                                 relPos,                              // relevant position
                                 (i + 1) * 0.1 * totalQuantity,       // percentage of quantity (QUESTION:  ACCOUNT FOR ROUNDING ERRORS?)
-                                FXtoUSD(splitPriceLevel(limit, stdDev, i), FXrate))); // split limit (USD)
+                                //FXtoUSD(splitPriceLevel(limit, stdDev, i), FXrate)));   // split limit (USD)
+                                splitPriceLevel(limit, stdDev, i), FXrate));
     }
 
     return arr;
@@ -144,10 +146,10 @@ function splitPriceLevel(origPrice, stdDev, power)
 }
 
 // Foreign exchange helper function
-function FXtoUSD(val, FXrate)
-{
-    return val / FXrate;
-}
+// function FXtoUSD(val, FXrate)
+// {
+//     return val / FXrate;
+// }
 
 
 /*                                                                          */
@@ -155,7 +157,7 @@ function FXtoUSD(val, FXrate)
 /*                                                                          */
 function createSplitOrdersCSV() 
 {
-    var text = "Trade Side,Security Name,Security Ticker,Quantity,Limit (USD),Custodian\n";
+    var text = "Trade Side,Security Name,Security Ticker,Quantity,Currency,Limit,Custodian\n";
 
     var splitOrders = splitOrdersArray();
     for (var i = 0; i < splitOrders.length; i++) {
@@ -169,7 +171,7 @@ function createSplitOrdersCSV()
 
 function splitOrderToText(s)
 {
-    return "" + s.side + "," + s.name + "," + s.ticker + "," + Math.floor(s.quantity) + "," + s.limit.toFixed(2) + "," + s.custodian + "\n";
+    return "" + s.side + "," + s.name + "," + s.ticker + "," + Math.floor(s.quantity) + "," + s.currency + "," + s.limit.toFixed(2) + "," + s.custodian + "\n";
 }
 
 

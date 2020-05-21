@@ -307,7 +307,7 @@ function executionSummaries()
 function summaryToText(s)
 {
     // s.custodian.replace('\r','') fixes the error where there is an extra \r character from custodian cell
-    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + Math.floor(s.avgPrice) + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
+    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + s.avgPrice + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
 }
 
 /*                                                                          */

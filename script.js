@@ -33,11 +33,11 @@ function Instruction(side,
 // - Buy Boeing, BA US, to 8% of NAV, limit USD 175
 // - Sell Airbus, AIR FP, to 4% of NAV, limit EUR 52
 var instructions = [];
-instructions.push(new Instruction("sell short", "Samsung", "005930 KS", -0.04, "KRW", 51000));
-instructions.push(new Instruction("buy cover", "Apple", "AAPL US", 0, "USD", 265));
-instructions.push(new Instruction("buy", "Embraer", "EMBR3 BZ", 0.08, "BRL", 9));
-instructions.push(new Instruction("buy", "Boeing", "BA US", 0.08, "USD", 175));
-instructions.push(new Instruction("sell", "Airbus", "AIR FP", 0.04, "EUR", 52));
+instructions.push(new Instruction("sell short", "Samsung", "005930 KS", -0.04, "KRW", 51000),
+                  new Instruction("buy cover", "Apple", "AAPL US", 0, "USD", 265),
+                  new Instruction("buy", "Embraer", "EMBR3 BZ", 0.08, "BRL", 9),
+                  new Instruction("buy", "Boeing", "BA US", 0.08, "USD", 175),
+                  new Instruction("sell", "Airbus", "AIR FP", 0.04, "EUR", 52));
 
 
 /*                                                                          */
@@ -95,68 +95,44 @@ function SplitOrder(instr, pos, quantity, limit) // (instruction, position)
     this.custodian = pos.custodian;
 }
 
-// input: instructions and positions
-// output: array of all split orders
-function splitOrdersArray() // (instructions[], positions[])  
-{
-    var splitOrders = [];
-    for (var i = 0; i < instructions.length; i++) {
-        var currSplitOrders = splitOrdersFromInstruction(instructions[i]);
-        for (var j = 0; j < currSplitOrders.length; j++) {
-            splitOrders.push(currSplitOrders[j]);
-        }
-    }
-    return splitOrders;
-}
-
 // Main calculation
 // input: one instruction
 // output: array of four split orders from inputted instruction
-function splitOrdersFromInstruction(instr)
+function splitOrdersFromInstructions()
 {
-    var relPos = positions.find(element => element.ticker == instr.ticker); // Relevant position
-    var targetPercentGap = Math.abs(instr.targetPercentNAV - relPos.exposureNAV);
-    var FXrate = relPos.FXrate;
-    var limit = instr.limit;
-    var stdDev = relPos.stdPxChange;
-    var side = instr.side.split(" ")[0];
-
     var orders = [];
 
-    var totalQuantity = 0;
-    if (instr.targetPercentNAV == 0) {
-        totalQuantity = Math.abs(relPos.position);
-    } else {
-        totalQuantity = (targetPercentGap * relPos.fundNAVbase) / FXtoUSD(splitPriceLevel(side, limit, stdDev, 3), FXrate);  // quantity = (targetPercentNAV * NAV) / limit
-    }
-    
-    for (var i = 0; i < 4; i++) {
-        console.log("i: " + i);
-        console.log("Total quantity: " + totalQuantity);
-        console.log("Calculated split order quantity: " + ((i + 1) * 0.1 * totalQuantity));
-        orders.push(new SplitOrder(instr,                               // instruction
-                                   relPos,                              // relevant position
-                                   (i + 1) * 0.1 * totalQuantity,       // percentage of quantity (QUESTION FOR DAD: consider changing price limit for quantity at each level?)
-                                   splitPriceLevel(side, limit, stdDev, i)));
-    }
+    instructions.forEach(instruction => {
+        var relPos = positions.find(element => element.ticker == instruction.ticker); // Relevant position
+        var targetPercentGap = Math.abs(instruction.targetPercentNAV - relPos.exposureNAV);
+        var FXrate = relPos.FXrate;
+        var limit = instruction.limit;
+        var stdDev = relPos.stdPxChange;
+        var side = instruction.side.split(" ")[0]; // "sell short" -> "sell", "buy cover" -> "buy"
+
+        var totalQuantity = (instruction.targetPercentNAV == 0) ? 
+                             Math.abs(relPos.position) : // Cover entire position to 0
+                             (targetPercentGap * relPos.fundNAVbase) / FXtoUSD(splitPriceLevel(side, limit, stdDev, 3), FXrate);
+        
+        for (var i = 0; i < 4; i++) {
+            orders.push(new SplitOrder(instruction,                               // instruction
+                                       relPos,                              // relevant position
+                                       (i + 1) * 0.1 * totalQuantity,       // percentage of quantity (QUESTION FOR DAD: consider changing price limit for quantity at each level?)
+                                       splitPriceLevel(side, limit, stdDev, i)));
+        }
+    });
 
     return orders;
 }
 
-// Split price level helper function for buying
+// Split price level helper function
 function splitPriceLevel(side, origPrice, stdDev, power)
 {
-    if (side == "buy") {
-        return origPrice * Math.pow(1 - stdDev, power);
-    } else if (side == "sell") {
-        return origPrice * Math.pow(1 + stdDev, power);
-    }
-    return -1;
-}
+    if (side != "buy" && side != "sell") return -1;
 
-function splitPriceLevelSell(origPrice, stdDev, power)
-{
-    return origPrice * Math.pow(1 + stdDev, power);
+    var stdDevMultiplier = (side == "buy") ? (1 - stdDev) : (1 + stdDev); // Increasing prices if selling, decreasing if buying
+
+    return origPrice * Math.pow(stdDevMultiplier, power);
 }
 
 // Foreign exchange helper function
@@ -165,7 +141,6 @@ function FXtoUSD(val, FXrate)
     return val / FXrate;
 }
 
-
 /*                                                                          */
 /*                         Create output .csv text                          */
 /*                                                                          */
@@ -173,20 +148,13 @@ function createSplitOrdersCSV()
 {
     var text = "Trade Side,Security Name,Security Ticker,Quantity,Currency,Limit,Custodian\n";
 
-    var splitOrders = splitOrdersArray();
-    for (var i = 0; i < splitOrders.length; i++) {
-        console.log("---" + splitOrders[i].quantity);
-        text += splitOrderToText(splitOrders[i]);
-    }
-
-    console.log("Text to be outputted: " + text);
+    splitOrdersFromInstructions().forEach(splitOrder => { text += splitOrderToText(splitOrder) });
     
     return text;
 }
 
 function splitOrderToText(s)
 {
-    console.log("   " + s.quantity);
     return "" + s.side + "," + s.name + "," + s.ticker + "," + Math.floor(s.quantity) + "," + s.currency + "," + s.limit.toFixed(2) + "," + s.custodian + "\n";
 }
 
@@ -293,13 +261,9 @@ function summarizeExecutions()
 function createSummaryCSV()
 {
     var text = "Ticker,Side,Executed Quantity,Average Price,Custodian,Broker\n";
-    var summaries = executionSummaries();
-    for (var i = 0; i < summaries.length; i++) {
-        text += summaryToText(summaries[i]);
-    }
 
-    console.log("Text to be outputted: " + text);
-    
+    executionSummaries().forEach(summary => { text += summaryToText(summary) });
+
     return text;
 
 }
@@ -311,28 +275,22 @@ function executionSummaries()
 
     for (var i = 0; i < executions.length; i++) {
         var currExec = executions[i];
-        var securityExists = false;
-        for (var j = 0; j < summaries.length; j++) {
-            if (summaries[j].ticker == currExec.ticker) {
-                securityExists = true;
-                console.log("quantity: " + currExec.quantity);
-                console.log("avgPrice: " + currExec.avgPrice);
-                summaries[j].quantity += currExec.quantity;
-                summaries[j].totalPrice += currExec.quantity * currExec.avgPrice;
-                break;
-            }
-        }
-        if (!securityExists) {
+
+        var summaryIndex = summaries.findIndex( summary => { return (summary.ticker == currExec.ticker) ? true : false } );
+
+        if (summaryIndex == -1) {
             summaries.push(new Summary(currExec));
-            var lastIdx = summaries.length - 1;
-            summaries[lastIdx].quantity += currExec.quantity;
-            summaries[lastIdx].totalPrice += currExec.quantity * currExec.avgPrice;
+            summaries[summaries.length - 1].quantity += currExec.quantity;
+            summaries[summaries.length - 1].totalPrice += currExec.quantity * currExec.avgPrice;
+            continue;
         }
+
+        summaries[summaryIndex].quantity += currExec.quantity;
+        summaries[summaryIndex].totalPrice += currExec.quantity * currExec.avgPrice;
     }
 
     for (var i = 0; i < summaries.length; i++) {
         summaries[i].avgPrice = summaries[i].totalPrice / summaries[i].quantity;
-        console.log("Summary average price: " + summaries[i].avgPrice);
     }
 
     return summaries;

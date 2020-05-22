@@ -315,6 +315,8 @@ function executionSummaries()
         for (var j = 0; j < summaries.length; j++) {
             if (summaries[j].ticker == currExec.ticker) {
                 securityExists = true;
+                console.log("quantity: " + currExec.quantity);
+                console.log("avgPrice: " + currExec.avgPrice);
                 summaries[j].quantity += currExec.quantity;
                 summaries[j].totalPrice += currExec.quantity * currExec.avgPrice;
                 break;
@@ -330,6 +332,7 @@ function executionSummaries()
 
     for (var i = 0; i < summaries.length; i++) {
         summaries[i].avgPrice = summaries[i].totalPrice / summaries[i].quantity;
+        console.log("Summary average price: " + summaries[i].avgPrice);
     }
 
     return summaries;
@@ -339,7 +342,7 @@ function executionSummaries()
 function summaryToText(s)
 {
     // s.custodian.replace('\r','') fixes the error where there is an extra \r character from custodian cell
-    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + s.currency + "," + s.avgPrice.toFixed(2) + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
+    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + s.avgPrice.toFixed(2) + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
 }
 
 /*                                                                          */

@@ -54,7 +54,7 @@ function Position(p)
     this.exposureGross = parseFloat(p[6]);
     this.exposureNet = parseFloat(p[7]);
     this.fundNAVbase = parseFloat(p[8]);
-    this.EODPX = parseFloat(p[9]);
+    this.EODprice = parseFloat(p[9]);
     this.stdPxChange = parseFloat(p[10]) / 100;
     this.custodian = p[11];
 }
@@ -91,7 +91,7 @@ function SplitOrder(instr, pos, quantity, limit) // (instruction, position)
     this.ticker = instr.ticker;
     this.name = instr.name;
     this.quantity = quantity;
-    this.limit = limit; // TO DO: convert to USD?
+    this.limit = limit;
     this.custodian = pos.custodian;
 }
 
@@ -109,47 +109,61 @@ function splitOrdersArray() // (instructions[], positions[])
     return splitOrders;
 }
 
+// Main calculation
 // input: one instruction
 // output: array of four split orders from inputted instruction
 function splitOrdersFromInstruction(instr)
 {
     var relPos = positions.find(element => element.ticker == instr.ticker); // Relevant position
     var targetPercentGap = Math.abs(instr.targetPercentNAV - relPos.exposureNAV);
+    var FXrate = relPos.FXrate;
     var limit = instr.limit;
     var stdDev = relPos.stdPxChange;
-    var FXrate = relPos.FXrate;
+    var side = instr.side.split(" ")[0];
 
-    var arr = [];
+    var orders = [];
 
     var totalQuantity = 0;
     if (instr.targetPercentNAV == 0) {
         totalQuantity = Math.abs(relPos.position);
     } else {
-        totalQuantity = (targetPercentGap * relPos.fundNAVbase) / splitPriceLevel(limit, stdDev, 3);  // quantity = (targetPercentNAV * NAV)/ limit
+        totalQuantity = (targetPercentGap * relPos.fundNAVbase) / FXtoUSD(splitPriceLevel(side, limit, stdDev, 3), FXrate);  // quantity = (targetPercentNAV * NAV) / limit
     }
     
     for (var i = 0; i < 4; i++) {
-        arr.push(new SplitOrder(instr,                               // instruction
-                                relPos,                              // relevant position
-                                (i + 1) * 0.1 * totalQuantity,       // percentage of quantity (QUESTION:  ACCOUNT FOR ROUNDING ERRORS?)
-                                //FXtoUSD(splitPriceLevel(limit, stdDev, i), FXrate)));   // split limit (USD)
-                                splitPriceLevel(limit, stdDev, i), FXrate));
+        console.log("i: " + i);
+        console.log("Total quantity: " + totalQuantity);
+        console.log("Calculated split order quantity: " + ((i + 1) * 0.1 * totalQuantity));
+        orders.push(new SplitOrder(instr,                               // instruction
+                                   relPos,                              // relevant position
+                                   (i + 1) * 0.1 * totalQuantity,       // percentage of quantity (QUESTION FOR DAD: consider changing price limit for quantity at each level?)
+                                   splitPriceLevel(side, limit, stdDev, i)));
     }
 
-    return arr;
+    return orders;
 }
 
-// Split price level helper function
-function splitPriceLevel(origPrice, stdDev, power)
+// Split price level helper function for buying
+function splitPriceLevel(side, origPrice, stdDev, power)
 {
-    return origPrice * Math.pow(1 - stdDev, power);
+    if (side == "buy") {
+        return origPrice * Math.pow(1 - stdDev, power);
+    } else if (side == "sell") {
+        return origPrice * Math.pow(1 + stdDev, power);
+    }
+    return -1;
+}
+
+function splitPriceLevelSell(origPrice, stdDev, power)
+{
+    return origPrice * Math.pow(1 + stdDev, power);
 }
 
 // Foreign exchange helper function
-// function FXtoUSD(val, FXrate)
-// {
-//     return val / FXrate;
-// }
+function FXtoUSD(val, FXrate)
+{
+    return val / FXrate;
+}
 
 
 /*                                                                          */
@@ -161,6 +175,7 @@ function createSplitOrdersCSV()
 
     var splitOrders = splitOrdersArray();
     for (var i = 0; i < splitOrders.length; i++) {
+        console.log("---" + splitOrders[i].quantity);
         text += splitOrderToText(splitOrders[i]);
     }
 
@@ -171,6 +186,7 @@ function createSplitOrdersCSV()
 
 function splitOrderToText(s)
 {
+    console.log("   " + s.quantity);
     return "" + s.side + "," + s.name + "," + s.ticker + "," + Math.floor(s.quantity) + "," + s.currency + "," + s.limit.toFixed(2) + "," + s.custodian + "\n";
 }
 
@@ -187,6 +203,16 @@ function splitOrderToText(s)
 
 
 
+
+
+
+
+
+
+
+
+
+
 /*                                                                          */
 /*           Create .csv to be downloaded (used for both tasks)             */
 /*                                                                          */
@@ -198,6 +224,12 @@ function download(filename, text)
     element.click();
     element.remove();
 }
+
+
+
+
+
+
 
 
 
@@ -307,7 +339,7 @@ function executionSummaries()
 function summaryToText(s)
 {
     // s.custodian.replace('\r','') fixes the error where there is an extra \r character from custodian cell
-    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + s.avgPrice.toFixed(2) + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
+    return "" + s.ticker + "," + s.side + "," + s.quantity + "," + s.currency + "," + s.avgPrice.toFixed(2) + "," + s.custodian.replace('\r','') + "," + s.broker + "\r\n";
 }
 
 /*                                                                          */
